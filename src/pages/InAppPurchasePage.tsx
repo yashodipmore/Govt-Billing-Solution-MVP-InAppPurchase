@@ -34,11 +34,13 @@ import { InAppPurchaseService } from '../services/InAppPurchaseService';
 interface PurchaseItem {
   id: string;
   desc: string;
-  price: number;zd
+  price: number;
   status: boolean;
   units: number;
   icon: string;
-  type: 'PDF' | 'SPECIAL' | 'OTHER';
+  type: 'PDF' | 'SPECIAL' | 'OTHER' | 'SUBSCRIPTION';
+  expiryDate?: string | null;
+  name?: string;
 }
 
 const InAppPurchasePage: React.FC = () => {
@@ -150,7 +152,13 @@ const InAppPurchasePage: React.FC = () => {
     }
 
     try {
-      await inapp.purchaseItem(id);
+      if (itemToBuy.type === 'SUBSCRIPTION') {
+        // Handle subscription purchase
+        await inapp.purchaseSubscription(id);
+      } else {
+        // Handle regular item purchase
+        await inapp.purchaseItem(id);
+      }
       await handlePurchaseSuccess(itemToBuy);
     } catch (error) {
       handlePurchaseError(error, itemToBuy);
@@ -165,7 +173,12 @@ const InAppPurchasePage: React.FC = () => {
       await displayItems();
       
       // Show different messages based on item type
-      if (item.type === 'PDF') {
+      if (item.type === 'SUBSCRIPTION') {
+        const subType = item.id.includes('monthly') ? 'monthly' : 'yearly';
+        const subInfo = await inapp.getSubscriptionInfo();
+        const expiryDate = subInfo ? new Date(subInfo.expiryDate).toLocaleDateString() : 'unknown date';
+        setToastMessage(`${subType.charAt(0).toUpperCase() + subType.slice(1)} subscription activated! Valid until ${expiryDate}`);
+      } else if (item.type === 'PDF') {
         setToastMessage(`PDF package activated successfully`);
       } else if (item.type === 'SPECIAL') {
         setToastMessage(`${item.units} units added to your account`);
@@ -205,9 +218,33 @@ const InAppPurchasePage: React.FC = () => {
       setShowToast(true);
       return false;
     }
+    
+    // Subscription validation
+    if (item.type === 'SUBSCRIPTION') {
+      // Check if user already has an active subscription
+      const hasActiveSubscription = items.some(i => 
+        i.type === 'SUBSCRIPTION' && i.status === true && i.id !== item.id
+      );
+      
+      if (hasActiveSubscription) {
+        setToastMessage("You already have an active subscription. Please cancel it before subscribing to a different plan.");
+        setShowToast(true);
+        return false;
+      }
+      
+      return true;
+    }
 
     // PDF Package validation
     if (item.desc.includes('PDF')) {
+      // Check if user has an active subscription
+      const hasSubscription = items.some(i => i.type === 'SUBSCRIPTION' && i.status);
+      if (hasSubscription) {
+        setToastMessage("You already have an active subscription that includes unlimited PDF access");
+        setShowToast(true);
+        return false;
+      }
+      
       const hasPurchasedPDF = items.some(i => 
         i.desc.includes('PDF') && i.status === true && i.id !== item.id
       );
@@ -220,6 +257,14 @@ const InAppPurchasePage: React.FC = () => {
 
     // Special package validation (for share/special features)
     if (item.type === 'SPECIAL') {
+      // Check if user has an active subscription
+      const hasSubscription = items.some(i => i.type === 'SUBSCRIPTION' && i.status);
+      if (hasSubscription) {
+        setToastMessage("You already have an active subscription that includes unlimited access to these features");
+        setShowToast(true);
+        return false;
+      }
+      
       const currentUnits = items
         .filter(i => i.type === 'SPECIAL' && i.status)
         .reduce((total, i) => total + i.units, 0);
@@ -256,8 +301,18 @@ const InAppPurchasePage: React.FC = () => {
 
   // Group items by category
   const groupedItems = items.reduce((groups, item) => {
-    const category = item.desc.includes('PDF') ? 'PDF Packages' :
-                    item.desc.includes('Share') ? 'Sharing Options' : 'Additional Features';
+    let category;
+    
+    if (item.type === 'SUBSCRIPTION') {
+      category = 'Subscription Plans';
+    } else if (item.desc.includes('PDF')) {
+      category = 'PDF Packages';
+    } else if (item.desc.includes('Share')) {
+      category = 'Sharing Options';
+    } else {
+      category = 'Additional Features';
+    }
+    
     if (!groups[category]) {
       groups[category] = [];
     }
@@ -352,13 +407,20 @@ const InAppPurchasePage: React.FC = () => {
                               {item.status && (
                                 <div style={{ marginTop: '5px' }}>
                                   <IonBadge 
-                                    color={item.units > 3 ? 'success' : 'warning'}
+                                    color={item.type === 'SUBSCRIPTION' ? 'success' : (item.units > 3 ? 'success' : 'warning')}
                                     style={{ padding: '8px' }}
                                   >
-                                    <IonIcon icon={item.units > 3 ? checkmarkCircle : alertCircle} 
-                                            style={{ marginRight: '5px', verticalAlign: 'middle' }}/>
-                                    {item.units} units remaining
+                                    <IonIcon 
+                                      icon={item.type === 'SUBSCRIPTION' ? checkmarkCircle : (item.units > 3 ? checkmarkCircle : alertCircle)} 
+                                      style={{ marginRight: '5px', verticalAlign: 'middle' }}
+                                    />
+                                    {item.type === 'SUBSCRIPTION' ? 'Active' : `${item.units} units remaining`}
                                   </IonBadge>
+                                  {item.type === 'SUBSCRIPTION' && item.expiryDate && (
+                                    <div style={{ marginTop: '5px', fontSize: '0.85em', color: 'var(--ion-color-medium)' }}>
+                                      Expires: {item.expiryDate}
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -375,7 +437,7 @@ const InAppPurchasePage: React.FC = () => {
                               ) : (
                                 <>
                                   <IonIcon slot="start" icon={item.status ? cartOutline : chevronForward} />
-                                  {item.status ? 'Buy More' : 'Purchase'}
+                                  {item.type === 'SUBSCRIPTION' && item.status ? 'Manage' : (item.status ? 'Buy More' : 'Purchase')}
                                 </>
                               )}
                             </IonButton>
@@ -393,21 +455,57 @@ const InAppPurchasePage: React.FC = () => {
         <IonActionSheet
           isOpen={showActionSheet}
           onDidDismiss={() => setShowActionSheet(false)}
-          buttons={[
-            {
-              text: 'Confirm Purchase',
-              role: 'destructive',
-              handler: () => {
-                if (selectedItem) {
-                  buyItem(selectedItem.id);
+          buttons={
+            selectedItem?.type === 'SUBSCRIPTION' && selectedItem?.status ? [
+              // Subscription management options for active subscriptions
+              {
+                text: 'View Subscription Details',
+                handler: () => {
+                  // Show subscription details
+                  setToastMessage(`Your subscription is valid until ${selectedItem.expiryDate || 'unknown date'}`);
+                  setShowToast(true);
                 }
+              },
+              {
+                text: 'Cancel Subscription',
+                role: 'destructive',
+                handler: async () => {
+                  try {
+                    const success = await inapp.cancelSubscription();
+                    if (success) {
+                      await displayItems();
+                      setToastMessage('Subscription cancelled successfully');
+                    } else {
+                      setToastMessage('Failed to cancel subscription');
+                    }
+                    setShowToast(true);
+                  } catch (error) {
+                    setToastMessage('Error cancelling subscription');
+                    setShowToast(true);
+                  }
+                }
+              },
+              {
+                text: 'Close',
+                role: 'cancel'
               }
-            },
-            {
-              text: 'Cancel',
-              role: 'cancel'
-            }
-          ]}
+            ] : [
+              // Regular purchase options
+              {
+                text: selectedItem?.status ? 'Buy More' : 'Confirm Purchase',
+                role: 'destructive',
+                handler: () => {
+                  if (selectedItem) {
+                    buyItem(selectedItem.id);
+                  }
+                }
+              },
+              {
+                text: 'Cancel',
+                role: 'cancel'
+              }
+            ]
+          }
         />
 
         <IonToast
