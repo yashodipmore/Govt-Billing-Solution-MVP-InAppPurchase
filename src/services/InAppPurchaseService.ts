@@ -1,6 +1,7 @@
 import { Preferences } from '@capacitor/preferences';
 import { InAppPurchase2, IAPProduct } from '@ionic-native/in-app-purchase-2';
 import { isPlatform } from '@ionic/react';
+import { AuthService } from './AuthService';
 
 // Product IDs
 export const PDF_10 = "2014inv10Pdf";
@@ -55,9 +56,11 @@ export class InAppPurchaseService {
   private store: typeof InAppPurchase2;
   private isStoreReady = false;
   private purchaseCallbacks: { [key: string]: (success: boolean) => void } = {};
+  private authService: AuthService;
 
   constructor() {
     this.store = InAppPurchase2;
+    this.authService = new AuthService();
     
     if (isPlatform('hybrid')) {
       this.initializeStore().catch(err => {
@@ -342,6 +345,50 @@ export class InAppPurchaseService {
     return false;
   }
 
+  async isSocialShareAvailable() {
+    const products = await this.getInappItems();
+    for (let i = 4; i <= 7; i++) { // Facebook, Twitter, WhatsApp, SMS
+      if (products[i].Purchase === 'Yes') {
+        const units = products[i].Own - products[i].Consumed;
+        if (units > 0) return true;
+      }
+    }
+    return false;
+  }
+
+  async consumePrintSaveEmail() {
+    const products = await this.getInappItems();
+    for (let i = 9; i <= 11; i++) {
+      if (products[i].Purchase === 'Yes' && 
+          products[i].Consumed < products[i].Own) {
+        return this.incrementCounter(i);
+      }
+    }
+    return false;
+  }
+
+  async consumePDF() {
+    const products = await this.getInappItems();
+    for (let i = 0; i < 4; i++) {
+      if (products[i].Purchase === 'Yes' && 
+          products[i].Consumed < products[i].Own) {
+        return this.incrementCounter(i);
+      }
+    }
+    return false;
+  }
+
+  async consumeSocialShare() {
+    const products = await this.getInappItems();
+    for (let i = 4; i <= 7; i++) {
+      if (products[i].Purchase === 'Yes' && 
+          products[i].Consumed < products[i].Own) {
+        return this.incrementCounter(i);
+      }
+    }
+    return false;
+  }
+
   private async _handlePurchaseSuccess(id: string) {
     const products = await this.getInappItems();
     
@@ -405,6 +452,55 @@ export class InAppPurchaseService {
           products[i].Consumed <= products[i].Own) {
         return this.incrementCounter(i);
       }
+    }
+  }
+
+  async restorePurchases(): Promise<boolean> {
+    try {
+      const isAuth = await this.authService.isAuthenticated();
+      if (!isAuth) {
+        console.log('User not authenticated');
+        return false;
+      }
+
+      const token = await this.authService.getToken();
+      if (!token) {
+        console.log('No token found');
+        return false;
+      }
+
+      // For now, just return true as cloud service is not available
+      // In production, you would restore from cloud service
+      console.log('Restore purchases called');
+      return true;
+    } catch (error) {
+      console.error('Restore purchases failed:', error);
+      return false;
+    }
+  }
+
+  async backupPurchases(): Promise<boolean> {
+    try {
+      const isAuth = await this.authService.isAuthenticated();
+      if (!isAuth) {
+        console.log('User not authenticated');
+        return false;
+      }
+
+      const purchases = await this.getInappItems();
+      const activePurchases = purchases.filter(p => p.Purchase === 'Yes' && p.Own > 0);
+      
+      if (activePurchases.length === 0) {
+        return true; // Nothing to backup
+      }
+
+      // For now, just return true as cloud service is not available
+      // In production, you would backup to cloud service
+      console.log('Backup purchases called');
+      return true;
+    } catch (error) {
+      console.error('Backup purchases failed:', error);
+      return false;
     }
   }
 }

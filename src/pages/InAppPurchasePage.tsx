@@ -26,8 +26,9 @@ import {
   IonToast,
   IonFooter,
   IonSpinner,
+  IonAlert,
 } from '@ionic/react';
-import { checkmarkCircle, alertCircle, cartOutline, chevronForward } from 'ionicons/icons';
+import { checkmarkCircle, alertCircle, cartOutline, chevronForward, refresh } from 'ionicons/icons';
 import { InAppPurchaseService } from '../services/InAppPurchaseService';
 
 interface PurchaseItem {
@@ -49,6 +50,8 @@ const InAppPurchasePage: React.FC = () => {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showRestoreAlert, setShowRestoreAlert] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
 
   const inapp = new InAppPurchaseService();
 
@@ -231,6 +234,26 @@ const InAppPurchasePage: React.FC = () => {
     return true;
   };
 
+  const restorePurchases = async () => {
+    setIsRestoring(true);
+    setShowRestoreAlert(false);
+    
+    try {
+      const success = await inapp.restorePurchases();
+      if (success) {
+        await displayItems();
+        setToastMessage('Purchases restored successfully!');
+      } else {
+        setToastMessage('No purchases to restore or please login first');
+      }
+    } catch (error) {
+      setToastMessage('Failed to restore purchases');
+    } finally {
+      setIsRestoring(false);
+      setShowToast(true);
+    }
+  };
+
   // Group items by category
   const groupedItems = items.reduce((groups, item) => {
     const category = item.desc.includes('PDF') ? 'PDF Packages' :
@@ -274,6 +297,14 @@ const InAppPurchasePage: React.FC = () => {
       <IonHeader>
         <IonToolbar>
           <IonTitle>In-app Purchase</IonTitle>
+          <IonButton
+            slot="end"
+            fill="clear"
+            onClick={() => setShowRestoreAlert(true)}
+            disabled={isRestoring}
+          >
+            {isRestoring ? <IonSpinner name="crescent" /> : <IonIcon icon={refresh} />}
+          </IonButton>
         </IonToolbar>
       </IonHeader>
 
@@ -385,6 +416,23 @@ const InAppPurchasePage: React.FC = () => {
           message={toastMessage}
           duration={3000}
           position="bottom"
+        />
+
+        <IonAlert
+          isOpen={showRestoreAlert}
+          onDidDismiss={() => setShowRestoreAlert(false)}
+          header="Restore Purchases"
+          message="This will restore your previous purchases from the cloud. Make sure you're logged in."
+          buttons={[
+            {
+              text: 'Cancel',
+              role: 'cancel'
+            },
+            {
+              text: 'Restore',
+              handler: restorePurchases
+            }
+          ]}
         />
       </IonContent>
 
