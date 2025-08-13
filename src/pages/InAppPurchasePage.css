@@ -1,0 +1,237 @@
+/* InAppPurchasePage Custom Styles */
+
+.inapp-purchase-page {
+  --ion-background-color: #f8f9fa;
+}
+
+.subscription-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  margin: 16px 8px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid #e0e0e0;
+}
+
+.subscription-card.active {
+  border: 2px solid #4CAF50;
+  box-shadow: 0 4px 20px rgba(76, 175, 80, 0.15);
+}
+
+.subscription-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #007bff;
+}
+
+.subscription-card.active::before {
+  background: #4CAF50;
+}
+
+.premium-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: #4CAF50;
+  border-radius: 20px;
+  padding: 6px 12px;
+  color: white;
+  font-weight: bold;
+  font-size: 0.8em;
+}
+
+.feature-list {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  margin: 8px 0;
+  font-size: 0.9em;
+  color: #555;
+}
+
+.feature-icon {
+  margin-right: 8px;
+  color: #4CAF50;
+  font-size: 1.1em;
+  flex-shrink: 0;
+}
+
+.regular-card {
+  margin: 12px 8px;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: white;
+}
+
+.regular-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+.regular-card.purchased {
+  border: 2px solid #4CAF50;
+  background: linear-gradient(135deg, #f8fff8 0%, #e8f5e8 100%);
+}
+
+.price-tag {
+  font-size: 2em;
+  font-weight: bold;
+  color: #333;
+  margin: 0;
+  line-height: 1;
+}
+
+.price-subtitle {
+  font-size: 0.85em;
+  color: #666;
+  margin-top: 4px;
+}
+
+.category-header {
+  background: white;
+  color: #333;
+  font-weight: bold;
+  margin: 16px 8px 8px 8px;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  overflow: hidden;
+}
+
+.status-bar {
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 8px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9em;
+}
+
+.network-status {
+  display: flex;
+  align-items: center;
+}
+
+.network-status.online {
+  color: #4CAF50;
+}
+
+.network-status.offline {
+  color: #f44336;
+}
+
+.loading-skeleton {
+  margin: 16px 8px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.purchase-button {
+  border-radius: 12px;
+  font-weight: bold;
+  height: 48px;
+  transition: all 0.2s ease;
+}
+
+.purchase-button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.footer-info {
+  background: #f8f9fa;
+  border-top: 1px solid #e0e0e0;
+  padding: 12px 16px;
+  text-align: center;
+  font-size: 0.85em;
+  color: #666;
+}
+
+.footer-features {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.footer-feature {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  text-align: center;
+}
+
+.footer-feature ion-icon {
+  margin-bottom: 4px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .subscription-card,
+  .regular-card {
+    margin: 8px 4px;
+  }
+  
+  .category-header {
+    margin: 12px 4px 6px 4px;
+  }
+  
+  .price-tag {
+    font-size: 1.6em;
+  }
+  
+  .footer-features {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .footer-feature {
+    flex-direction: row;
+    gap: 8px;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .inapp-purchase-page {
+    --ion-background-color: #1a1a1a;
+  }
+  
+  .regular-card {
+    background: #2d2d2d;
+    border-color: #404040;
+  }
+  
+  .regular-card.purchased {
+    background: linear-gradient(135deg, #1a2f1a 0%, #2d4a2d 100%);
+  }
+  
+  .status-bar {
+    background: #2d2d2d;
+    border-color: #404040;
+  }
+  
+  .footer-info {
+    background: #2d2d2d;
+    border-color: #404040;
+  }
+  
+  .price-tag {
+    color: #fff;
+  }
+  
+  .price-subtitle {
+    color: #ccc;
+  }
+}

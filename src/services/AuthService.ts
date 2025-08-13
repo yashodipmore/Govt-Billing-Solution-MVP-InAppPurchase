@@ -1,123 +1,62 @@
-import { Preferences } from '@capacitor/preferences';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  sendPasswordResetEmail,
+  updateProfile,
+  GoogleAuthProvider,
+  signInWithPopup
+} from 'firebase/auth';
+import { auth } from '../firebase/config';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
+import { isPlatform } from '@ionic/react';
 
-export interface AuthResponse {
-  result: string;
-  user?: any;
-  message?: string;
-}
-
-export interface UserData {
-  email: string;
-  password: string;
-  appname: string;
-}
-
-export class AuthService {
-  private baseUrl = 'http://aspiringapps.com/api';
-
-  async login(email: string, password: string): Promise<AuthResponse> {
-    try {
-      const userData: UserData = {
-        email: email.toLowerCase(),
-        password: password,
-        appname: 'GovtInvoiceNew'
-      };
-
-      const response = await fetch(`${this.baseUrl}/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ data: userData })
-      });
-
-      const result = await response.json();
-      
-      if (result.result === 'ok' && result.user) {
-        await this.setToken(result.user);
-      }
-      
-      return result;
-    } catch (error) {
-      console.error('Login error:', error);
-      return { result: 'error', message: 'Login failed' };
+export const authService = {
+  // Email/Password Sign Up
+  signup: async (email: string, password: string, displayName?: string) => {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    if (displayName && userCredential.user) {
+      await updateProfile(userCredential.user, { displayName });
     }
-  }
+    return userCredential.user;
+  },
 
-  async register(email: string, password: string): Promise<AuthResponse> {
-    try {
-      const userData: UserData = {
-        email: email.toLowerCase(),
-        password: password,
-        appname: 'GovtInvoiceNew'
-      };
+  // Email/Password Sign In
+  login: async (email: string, password: string) => {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return userCredential.user;
+  },
 
-      const response = await fetch(`${this.baseUrl}/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ data: userData })
-      });
-
-      const result = await response.json();
-      
-      if (result.result === 'ok' && result.user) {
-        await this.setToken(result.user);
-      }
-      
-      return result;
-    } catch (error) {
-      console.error('Registration error:', error);
-      return { result: 'error', message: 'Registration failed' };
+  // Google Sign In
+  signInWithGoogle: async () => {
+    if (isPlatform('capacitor')) {
+      // Use Capacitor plugin for mobile
+      const result = await FirebaseAuthentication.signInWithGoogle();
+      return result.user;
+    } else {
+      // Use web popup for browser
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      return result.user;
     }
-  }
+  },
 
-  async logout(): Promise<boolean> {
-    try {
-      await fetch(`${this.baseUrl}/logout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-      
-      await this.removeToken();
-      return true;
-    } catch (error) {
-      console.error('Logout error:', error);
-      return false;
+  // Sign Out
+  logout: async () => {
+    if (isPlatform('capacitor')) {
+      await FirebaseAuthentication.signOut();
+    } else {
+      await signOut(auth);
     }
-  }
+  },
 
-  async getToken(): Promise<string | null> {
-    try {
-      const result = await Preferences.get({ key: 'authToken' });
-      return result.value;
-    } catch (error) {
-      console.error('Get token error:', error);
-      return null;
-    }
-  }
+  // Password Reset
+  resetPassword: async (email: string) => {
+    await sendPasswordResetEmail(auth, email);
+  },
 
-  async setToken(token: string): Promise<void> {
-    try {
-      await Preferences.set({ key: 'authToken', value: token });
-    } catch (error) {
-      console.error('Set token error:', error);
-    }
+  // Get Current User
+  getCurrentUser: () => {
+    return auth.currentUser;
   }
-
-  async removeToken(): Promise<void> {
-    try {
-      await Preferences.remove({ key: 'authToken' });
-    } catch (error) {
-      console.error('Remove token error:', error);
-    }
-  }
-
-  async isAuthenticated(): Promise<boolean> {
-    const token = await this.getToken();
-    return token !== null;
-  }
-}
+};

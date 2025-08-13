@@ -12,8 +12,14 @@ import {
   IonLabel,
   IonAlert,
   IonItemGroup,
+  IonSearchbar,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonContent,
+  IonToast,
 } from "@ionic/react";
-import { fileTrayFull, trash, create } from "ionicons/icons";
+import { fileTrayFull, trash, create, lockClosed } from "ionicons/icons";
 
 const Files: React.FC<{
   store: Local;
@@ -24,14 +30,47 @@ const Files: React.FC<{
   const [modal, setModal] = useState(null);
   const [listFiles, setListFiles] = useState(false);
   const [showAlert1, setShowAlert1] = useState(false);
+  const [showPasswordAlert, setShowPasswordAlert] = useState(false);
   const [currentKey, setCurrentKey] = useState(null);
+  const [searchText, setSearchText] = useState("");
+  const [selectedPasswordFile, setSelectedPasswordFile] = useState(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
 
-  const editFile = (key) => {
-    props.store._getFile(key).then((data) => {
+  const editFile = async (key) => {
+    try {
+      // Check if file is password protected
+      const metadata = await props.store._getFileMetadata(key);
+      if (metadata.isPasswordProtected) {
+        setSelectedPasswordFile(key);
+        setShowPasswordAlert(true);
+        return;
+      }
+      
+      // File is not password protected, load normally
+      const data = await props.store._getFile(key);
       AppGeneral.viewFile(key, decodeURIComponent((data as any).content));
       props.updateSelectedFile(key);
       props.updateBillType((data as any).billType);
-    });
+    } catch (error) {
+      setToastMessage("Error loading file");
+      setShowToast(true);
+    }
+  };
+
+  const editPasswordProtectedFile = async (password) => {
+    try {
+      const data = await props.store._getFile(selectedPasswordFile, password);
+      AppGeneral.viewFile(selectedPasswordFile, decodeURIComponent((data as any).content));
+      props.updateSelectedFile(selectedPasswordFile);
+      props.updateBillType((data as any).billType);
+      setSelectedPasswordFile(null);
+      setListFiles(false);
+      setSearchText("");
+    } catch (error) {
+      setToastMessage("Invalid password");
+      setShowToast(true);
+    }
   };
 
   const deleteFile = (key) => {
@@ -51,12 +90,30 @@ const Files: React.FC<{
 
   const temp = async () => {
     const files = await props.store._getAllFiles();
-    const fileList = Object.keys(files).map((key) => {
+    
+    // Filter files based on search text
+    const filteredFileKeys = Object.keys(files).filter((key) =>
+      key.toLowerCase().includes(searchText.toLowerCase())
+    );
+    
+    const fileList = filteredFileKeys.length > 0 ? filteredFileKeys.map((key) => {
+      const fileData = files[key];
+      const isPasswordProtected = fileData.isPasswordProtected || false;
+      
       return (
         <IonItemGroup key={key}>
-          <IonItem>
-            <IonLabel>{key}</IonLabel>
-            {_formatDate(files[key])}
+          <IonItem className="file-item">
+            <IonLabel>
+              {key}
+              {isPasswordProtected && (
+                <IonIcon 
+                  icon={lockClosed} 
+                  size="small" 
+                  style={{ marginLeft: '8px', color: '#f39c12' }}
+                />
+              )}
+            </IonLabel>
+            {_formatDate(typeof fileData === 'string' ? fileData : fileData.modified)}
 
             <IonIcon
               icon={create}
@@ -65,6 +122,7 @@ const Files: React.FC<{
               size="large"
               onClick={() => {
                 setListFiles(false);
+                setSearchText(""); // Clear search when editing
                 editFile(key);
               }}
             />
@@ -76,26 +134,56 @@ const Files: React.FC<{
               size="large"
               onClick={() => {
                 setListFiles(false);
+                setSearchText(""); // Clear search when deleting
                 deleteFile(key);
               }}
             />
           </IonItem>
         </IonItemGroup>
       );
-    });
+    }) : [
+      <IonItem key="no-results" className="no-results-item">
+        <IonLabel>
+          {searchText ? "No files found matching your search." : "No files available."}
+        </IonLabel>
+      </IonItem>
+    ];
 
     const ourModal = (
-      <IonModal isOpen={listFiles} onDidDismiss={() => setListFiles(false)}>
-        <IonList>{fileList}</IonList>
-        <IonButton
-          expand="block"
-          color="secondary"
-          onClick={() => {
-            setListFiles(false);
-          }}
-        >
-          Back
-        </IonButton>
+      <IonModal 
+        isOpen={listFiles} 
+        onDidDismiss={() => {
+          setListFiles(false);
+          setSearchText(""); // Clear search when modal is closed
+        }}
+        className="file-manager-modal"
+      >
+        <IonHeader className="file-manager-header">
+          <IonToolbar>
+            <IonTitle>File Manager</IonTitle>
+          </IonToolbar>
+        </IonHeader>
+        <IonContent className="file-manager-content">
+          <IonSearchbar
+            value={searchText}
+            debounce={300}
+            onIonInput={(e) => setSearchText(e.detail.value!)}
+            placeholder="Search files..."
+            showClearButton="focus"
+            className="file-manager-searchbar"
+          />
+          <IonList>{fileList}</IonList>
+          <IonButton
+            expand="block"
+            color="secondary"
+            onClick={() => {
+              setListFiles(false);
+              setSearchText(""); // Clear search when back button is clicked
+            }}
+          >
+            Back
+          </IonButton>
+        </IonContent>
       </IonModal>
     );
     setModal(ourModal);
@@ -103,7 +191,7 @@ const Files: React.FC<{
 
   useEffect(() => {
     temp();
-  }, [listFiles]);
+  }, [listFiles, searchText]); // Added searchText dependency for real-time filtering
 
   return (
     <React.Fragment>
@@ -134,6 +222,50 @@ const Files: React.FC<{
             },
           },
         ]}
+      />
+      <IonAlert
+        animated
+        isOpen={showPasswordAlert}
+        onDidDismiss={() => {
+          setShowPasswordAlert(false);
+          setSelectedPasswordFile(null);
+        }}
+        header="Password Required"
+        message={`Enter password for file: ${selectedPasswordFile}`}
+        inputs={[
+          {
+            name: "password",
+            type: "password",
+            placeholder: "Enter password",
+          },
+        ]}
+        buttons={[
+          {
+            text: "Cancel",
+            role: "cancel",
+            handler: () => {
+              setSelectedPasswordFile(null);
+            },
+          },
+          {
+            text: "Open",
+            handler: (alertData) => {
+              if (alertData.password) {
+                editPasswordProtectedFile(alertData.password);
+              } else {
+                setToastMessage("Password is required");
+                setShowToast(true);
+              }
+            },
+          },
+        ]}
+      />
+      <IonToast
+        isOpen={showToast}
+        onDidDismiss={() => setShowToast(false)}
+        message={toastMessage}
+        duration={2000}
+        position="bottom"
       />
     </React.Fragment>
   );

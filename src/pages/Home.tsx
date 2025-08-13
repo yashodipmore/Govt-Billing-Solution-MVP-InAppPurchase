@@ -9,16 +9,25 @@ import {
   IonPopover,
   IonTitle,
   IonToolbar,
+  IonToast,
+  IonToggle,
+  IonItem,
+  IonLabel,
 } from "@ionic/react";
 import { APP_NAME, DATA } from "../app-data";
 import * as AppGeneral from "../components/socialcalc/index.js";
 import { useEffect, useState } from "react";
 import { Local } from "../components/Storage/LocalStorage";
-import { menu, settings } from "ionicons/icons";
+import { menu, settings, arrowUndoOutline, arrowRedoOutline, personCircleOutline, personRemoveOutline, cartOutline } from "ionicons/icons";
 import "./Home.css";
 import Menu from "../components/Menu/Menu";
 import Files from "../components/Files/Files";
 import NewFile from "../components/NewFile/NewFile";
+import { useAutoSave } from "../hooks/useAutoSave";
+import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
+import { useAuth } from "../contexts/AuthContext";
+import { useHistory } from "react-router-dom";
+import { authService } from "../services/authService";
 
 const Home: React.FC = () => {
   const [showMenu, setShowMenu] = useState(false);
@@ -29,8 +38,33 @@ const Home: React.FC = () => {
   const [selectedFile, updateSelectedFile] = useState("default");
   const [billType, updateBillType] = useState(1);
   const [device] = useState("default");
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const { currentUser } = useAuth();
+  const history = useHistory();
 
   const store = new Local();
+
+  // Auto-save hook with fixed 15-second interval and no notifications
+  const { startAutoSave, stopAutoSave } = useAutoSave(
+    store,
+    selectedFile,
+    billType,
+    {
+      intervalMs: 15000, // 15 seconds fixed
+      enabled: selectedFile !== "default", // Always enabled except for default file
+      onSave: () => {
+        // Silent auto-save, no notifications
+      },
+      onError: (error) => {
+        // Only show critical errors
+        if (error.includes("critical")) {
+          setToastMessage(error);
+          setShowToast(true);
+        }
+      }
+    }
+  );
 
   const closeMenu = () => {
     setShowMenu(false);
@@ -38,6 +72,51 @@ const Home: React.FC = () => {
 
   const activateFooter = (footer) => {
     AppGeneral.activateFooterButton(footer);
+  };
+
+  const handleUndo = () => {
+    try {
+      AppGeneral.undo();
+      setToastMessage("Undo successful");
+      setShowToast(true);
+    } catch (error) {
+      setToastMessage("Cannot undo");
+      setShowToast(true);
+    }
+  };
+
+  const handleRedo = () => {
+    try {
+      AppGeneral.redo();
+      setToastMessage("Redo successful");
+      setShowToast(true);
+    } catch (error) {
+      setToastMessage("Cannot redo");
+      setShowToast(true);
+    }
+  };
+
+  // Keyboard shortcuts for undo/redo
+  useKeyboardShortcuts(handleUndo, handleRedo);
+
+  // Authentication handlers
+  const handleLogin = () => {
+    history.push('/auth');
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+      setToastMessage("Logged out successfully!");
+      setShowToast(true);
+    } catch (error: any) {
+      setToastMessage("Logout failed: " + error.message);
+      setShowToast(true);
+    }
+  };
+
+  const handleInAppPurchase = () => {
+    history.push('/inapp-purchase');
   };
 
   useEffect(() => {
@@ -78,6 +157,48 @@ const Home: React.FC = () => {
       <IonContent fullscreen>
         <IonToolbar color="primary">
           <IonIcon
+            icon={arrowUndoOutline}
+            slot="end"
+            className="ion-padding-end"
+            size="large"
+            onClick={handleUndo}
+            style={{ cursor: 'pointer' }}
+            title="Undo"
+          />
+          <IonIcon
+            icon={arrowRedoOutline}
+            slot="end"
+            className="ion-padding-end"
+            size="large"
+            onClick={handleRedo}
+            style={{ cursor: 'pointer' }}
+            title="Redo"
+          />
+          <IonIcon
+            icon={cartOutline}
+            slot="end"
+            className="ion-padding-end"
+            size="large"
+            onClick={handleInAppPurchase}
+            style={{ 
+              cursor: 'pointer',
+              color: 'white'
+            }}
+            title="In-App Purchase"
+          />
+          <IonIcon
+            icon={currentUser ? personRemoveOutline : personCircleOutline}
+            slot="end"
+            className="ion-padding-end auth-icon"
+            size="large"
+            onClick={currentUser ? handleLogout : handleLogin}
+            style={{ 
+              cursor: 'pointer',
+              color: 'white'
+            }}
+            title={currentUser ? "Logout" : "Login"}
+          />
+          <IonIcon
             icon={settings}
             slot="end"
             className="ion-padding-end"
@@ -110,12 +231,19 @@ const Home: React.FC = () => {
               setShowPopover({ open: false, event: undefined })
             }
           >
-            {footersList}
+            <div style={{ padding: '10px' }}>
+              {footersList}
+            </div>
           </IonPopover>
         </IonToolbar>
         <IonToolbar color="secondary">
           <IonTitle className="ion-text-center">
             Editing : {selectedFile}
+            {selectedFile !== 'default' && (
+              <div style={{ fontSize: '11px', color: '#4CAF50', marginTop: '2px', opacity: 0.8 }}>
+                Auto-save enabled
+              </div>
+            )}
           </IonTitle>
         </IonToolbar>
 
@@ -139,6 +267,16 @@ const Home: React.FC = () => {
           <div id="tableeditor"></div>
           <div id="msg"></div>
         </div>
+        
+        <IonToast
+          isOpen={showToast}
+          onDidDismiss={() => setShowToast(false)}
+          message={toastMessage}
+          duration={2000}
+          position="bottom"
+          color={toastMessage.includes('successful') ? 'success' : 
+                 toastMessage.includes('Auto-saved') ? 'success' : 'danger'}
+        />
       </IonContent>
     </IonPage>
   );

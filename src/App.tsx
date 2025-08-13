@@ -1,9 +1,10 @@
-import { IonApp, IonRouterOutlet, setupIonicReact } from "@ionic/react";
+import { IonApp, setupIonicReact } from "@ionic/react";
 import { IonReactRouter } from "@ionic/react-router";
-import { Redirect, Route } from "react-router-dom";
+import { Route } from "react-router-dom";
 import Home from "./pages/Home";
+import AuthPage from "./pages/AuthPage";
 import InAppPurchasePage from "./pages/InAppPurchasePage";
-import UserSettingsPage from "./pages/UserSettingsPage";
+import { AuthProvider } from "./contexts/AuthContext";
 
 /* Core CSS required for Ionic components to work properly */
 import "@ionic/react/css/core.css";
@@ -28,16 +29,22 @@ setupIonicReact();
 
 const App: React.FC = () => (
   <IonApp>
-    <IonReactRouter>
-      <IonRouterOutlet>
-        <Route exact path="/home" component={Home} />
-        <Route exact path="/in-app-purchase" component={InAppPurchasePage} />
-        <Route exact path="/user-settings" component={UserSettingsPage} />
-        <Route exact path="/">
-          <Redirect to="/home" />
+    <AuthProvider>
+      <IonReactRouter>
+        <Route exact path="/home">
+          <Home />
         </Route>
-      </IonRouterOutlet>
-    </IonReactRouter>
+        <Route exact path="/auth">
+          <AuthPage />
+        </Route>
+        <Route exact path="/inapp-purchase">
+          <InAppPurchasePage />
+        </Route>
+        <Route exact path="/">
+          <Home />
+        </Route>
+      </IonReactRouter>
+    </AuthProvider>
   </IonApp>
 );
 
