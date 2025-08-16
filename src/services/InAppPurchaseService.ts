@@ -1,5 +1,5 @@
 import { Preferences } from '@capacitor/preferences';
-import { InAppPurchase2, IAPProduct } from '@ionic-native/in-app-purchase-2';
+import { InAppPurchase2, IAPProduct } from '@awesome-cordova-plugins/in-app-purchase-2';
 import { isPlatform } from '@ionic/react';
 import { authService } from './authService';
 

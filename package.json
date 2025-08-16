@@ -14,7 +14,9 @@
     "generate-pwa-assets": "pwa-assets-generator"
   },
   "dependencies": {
+    "@awesome-cordova-plugins/core": "^8.1.0",
     "@awesome-cordova-plugins/in-app-purchase-2": "^8.1.0",
+    "@awesome-cordova-plugins/printer": "^8.1.0",
     "@capacitor-firebase/authentication": "^7.2.0",
     "@capacitor/android": "^7.0.0",
     "@capacitor/app": "^7.0.1",
@@ -26,9 +28,6 @@
     "@capacitor/preferences": "^7.0.1",
     "@capacitor/share": "^7.0.1",
     "@capacitor/status-bar": "^7.0.1",
-    "@ionic-native/core": "^5.36.0",
-    "@ionic-native/in-app-purchase-2": "^5.36.0",
-    "@ionic-native/printer": "^5.36.0",
     "@ionic/pwa-elements": "^3.3.0",
     "@ionic/react": "^8.6.5",
     "@ionic/react-router": "^8.6.5",
